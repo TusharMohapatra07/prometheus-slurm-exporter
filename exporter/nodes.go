@@ -6,6 +6,7 @@ package exporter
 
 import (
 	"bytes"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,9 +14,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"log/slog"
 	"slices"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type NodeMetric struct {
@@ -104,6 +106,11 @@ func (naf *NAbleFloat) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func (naf *NAbleFloat) FromString(data string) error {
+	post := strings.Trim(data, `"`)
+	return naf.UnmarshalJSON([]byte(`"` + post + `"`))
+}
+
 type NodeCliFallbackFetcher struct {
 	scraper      SlurmByteScraper
 	errorCounter prometheus.Counter
@@ -116,26 +123,95 @@ func (cmf *NodeCliFallbackFetcher) fetch() ([]NodeMetric, error) {
 		cmf.errorCounter.Inc()
 		return nil, err
 	}
+	sinfo = bytes.Trim(sinfo, " \n")
+	// parse csv from the following CSV format: "StateCompact,Memory,NodeHost,CPUsLoad,Partition,FreeMem,CPUsState,Weight,AllocMem"
 	nodeMetrics := make(map[string]*NodeMetric, 0)
-	for i, line := range bytes.Split(bytes.Trim(sinfo, "\n"), []byte("\n")) {
-		var metric struct {
-			Hostname   string     `json:"n"`
-			RealMemory float64    `json:"mem"`
-			FreeMemory NAbleFloat `json:"fmem"`
-			CpuState   string     `json:"cstate"`
-			Partition  string     `json:"p"`
-			CpuLoad    NAbleFloat `json:"l"`
-			State      string     `json:"s"`
-			Weight     float64    `json:"w"`
-		}
-		if err := json.Unmarshal(line, &metric); err != nil {
+	type CsvHeader int
+	// csv header: StateCompact,Memory,NodeHost,CPUsLoad,Partition,FreeMem,CPUsState,Weight,AllocMem
+	const (
+		State CsvHeader = iota
+		RealMemory
+		NodeHost
+		CPUsLoad
+		Partition
+		FreeMem
+		CPUsState
+		Weight
+		AllocMem
+		// delimits the end of the record
+		CsvSTOP
+	)
+
+	type CliNodeMetric struct {
+		Hostname    string     `json:"n"`
+		RealMemory  float64    `json:"mem"`
+		FreeMemory  NAbleFloat `json:"fmem"`
+		AllocMemory NAbleFloat `json:"amem"`
+		CpuState    string     `json:"cstate"`
+		Partition   string     `json:"p"`
+		CpuLoad     NAbleFloat `json:"l"`
+		State       string     `json:"s"`
+		Weight      float64    `json:"w"`
+	}
+	csvReader := csv.NewReader(bytes.NewReader(sinfo))
+	csvReader.Comma = '|'
+	csvReader.TrimLeadingSpace = true
+	csvReader.FieldsPerRecord = 9
+
+	allRecords, err := csvReader.ReadAll()
+	if err != nil {
+		return nil, fmt.Errorf("node cli buffer error %q", err)
+	}
+
+	for _, records := range allRecords {
+		if len(records) != int(CsvSTOP) {
+			slog.Error(fmt.Sprintf("node fallback cli record length expectation unmet. Expected %d fields, got %+v", int(CsvSTOP), records))
 			cmf.errorCounter.Inc()
-			slog.Error(fmt.Sprintf("sinfo failed to parse line %d: %s, got %q", i, line, err))
 			continue
 		}
+		// santize the records to avoid trailing whitespace
+		for idx, record := range records {
+			records[idx] = strings.TrimSpace(record)
+		}
+		metric := new(CliNodeMetric)
+		metric.Hostname = records[NodeHost]
 		// convert mem units from MB to Bytes
-		metric.RealMemory *= 1e6
-		metric.FreeMemory *= 1e6
+		if realMem, err := strconv.ParseFloat(records[RealMemory], 64); err == nil {
+			metric.RealMemory = realMem * 1e6
+		} else {
+			slog.Error(fmt.Sprintf("failed to parse real memory string %s with err: %q", records[RealMemory], err))
+			cmf.errorCounter.Inc()
+			return nil, err
+		}
+		if err := metric.FreeMemory.FromString(records[FreeMem]); err == nil {
+			metric.FreeMemory *= 1e6
+		} else {
+			slog.Error(fmt.Sprintf("failed to parse free memory string %s with err: %q", records[FreeMem], err))
+			cmf.errorCounter.Inc()
+			return nil, err
+		}
+		if err := metric.AllocMemory.FromString(records[AllocMem]); err == nil {
+			metric.AllocMemory *= 1e6
+		} else {
+			slog.Error(fmt.Sprintf("failed to parse alloc memory string %s with err: %q", records[AllocMem], err))
+			cmf.errorCounter.Inc()
+			return nil, err
+		}
+		metric.CpuState = records[CPUsState]
+		metric.Partition = records[Partition]
+		if err := metric.CpuLoad.FromString(records[CPUsLoad]); err != nil {
+			cmf.errorCounter.Inc()
+			return nil, err
+		}
+		metric.State = records[State]
+		if weight, err := strconv.ParseFloat(records[Weight], 64); err == nil {
+			metric.Weight = weight
+		} else {
+			slog.Error(fmt.Sprintf("failed to parse weight string %s with err: %q", records[Weight], err))
+			cmf.errorCounter.Inc()
+			return nil, err
+		}
+
 		cpuStates := strings.Split(metric.CpuState, "/")
 		if len(cpuStates) != 4 {
 			cmf.errorCounter.Inc()
@@ -177,7 +253,7 @@ func (cmf *NodeCliFallbackFetcher) fetch() ([]NodeMetric, error) {
 				FreeMemory:  float64(metric.FreeMemory),
 				Partitions:  []string{metric.Partition},
 				State:       metric.State,
-				AllocMemory: metric.RealMemory - float64(metric.FreeMemory),
+				AllocMemory: float64(metric.AllocMemory),
 				AllocCpus:   allocated,
 				IdleCpus:    idle,
 				Weight:      metric.Weight,
@@ -185,11 +261,11 @@ func (cmf *NodeCliFallbackFetcher) fetch() ([]NodeMetric, error) {
 			}
 		}
 	}
-	values := make([]NodeMetric, 0)
+	var nodeValues []NodeMetric
 	for _, val := range nodeMetrics {
-		values = append(values, *val)
+		nodeValues = append(nodeValues, *val)
 	}
-	return values, nil
+	return nodeValues, nil
 }
 
 func (cmf *NodeCliFallbackFetcher) FetchMetrics() ([]NodeMetric, error) {
