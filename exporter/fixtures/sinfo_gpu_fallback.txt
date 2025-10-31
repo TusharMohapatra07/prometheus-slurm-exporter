@@ -1,0 +1,4 @@
+gpu:tesla:4|
+gpu:a100:8|
+gpu:2|
+(null)|

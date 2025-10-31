@@ -1,0 +1,27 @@
+{
+  "meta": {
+    "Slurm": {
+      "version": {
+        "major": 23,
+        "micro": 0,
+        "minor": 5
+      },
+      "release": "23.05.0"
+    }
+  },
+  "errors": [],
+  "nodes": [
+    {
+      "gres": "gpu:tesla:4"
+    },
+    {
+      "gres": "gpu:a100:8"
+    },
+    {
+      "gres": "gpu:2"
+    },
+    {
+      "gres": "(null)"
+    }
+  ]
+}

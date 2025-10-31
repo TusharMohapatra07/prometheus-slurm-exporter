@@ -24,8 +24,11 @@ type CliOpts struct {
 	sacctmgr      []string
 	lic           []string
 	sdiag         []string
+	sinfoGpu      []string
+	sacctGpu      []string
 	licEnabled    bool
 	diagsEnabled  bool
+	gpusEnabled   bool
 	fallback      bool
 	sacctEnabled  bool
 	excludeFilter *regexp.Regexp
@@ -50,6 +53,7 @@ type Config struct {
 type CliFlags struct {
 	SlurmLicEnabled           bool
 	SlurmDiagEnabled          bool
+	SlurmGpusEnabled          bool
 	SlurmCliFallback          bool
 	TraceEnabled              bool
 	SacctEnabled              bool
@@ -61,6 +65,8 @@ type CliFlags struct {
 	SlurmSinfoOverride        string
 	SlurmDiagOverride         string
 	SlurmAcctOverride         string
+	SlurmSinfoGpuOverride     string
+	SlurmSacctGpuOverride     string
 	TraceRate                 uint64
 	TracePath                 string
 	SlurmLicenseOverride      string
@@ -86,8 +92,11 @@ func NewConfig(cliFlags *CliFlags) (*Config, error) {
 		lic:           []string{"scontrol", "show", "lic", "--json"},
 		sdiag:         []string{"sdiag", "--json"},
 		sacctmgr:      []string{"sacctmgr", "show", "assoc", "format=User,Account,GrpCPU,GrpMem,GrpJobs,GrpSubmit", "--noheader", "--parsable2"},
+		sinfoGpu:      []string{"sinfo", "--json"},
+		sacctGpu:      []string{"sacct", "-a", "-X", "--format=AllocGRES", "--state=RUNNING", "--json"},
 		licEnabled:    cliFlags.SlurmLicEnabled,
 		diagsEnabled:  cliFlags.SlurmDiagEnabled,
+		gpusEnabled:   cliFlags.SlurmGpusEnabled,
 		fallback:      cliFlags.SlurmCliFallback,
 		sacctEnabled:  cliFlags.SacctEnabled,
 		excludeFilter: compiledExcludeRegex,
@@ -148,6 +157,12 @@ func NewConfig(cliFlags *CliFlags) (*Config, error) {
 	if cliFlags.SlurmLicenseOverride != "" {
 		cliOpts.lic = strings.Split(cliFlags.SlurmLicenseOverride, " ")
 	}
+	if cliFlags.SlurmSinfoGpuOverride != "" {
+		cliOpts.sinfoGpu = strings.Split(cliFlags.SlurmSinfoGpuOverride, " ")
+	}
+	if cliFlags.SlurmSacctGpuOverride != "" {
+		cliOpts.sacctGpu = strings.Split(cliFlags.SlurmSacctGpuOverride, " ")
+	}
 	if cliOpts.fallback {
 		// we define a custom json format that we convert back into the openapi format
 		if cliFlags.SlurmSqueueOverride == "" {
@@ -156,6 +171,12 @@ func NewConfig(cliFlags *CliFlags) (*Config, error) {
 		if cliFlags.SlurmSinfoOverride == "" {
 			// set field lengths wide enough to avoid truncation
 			cliOpts.sinfo = []string{"sinfo", "-h", "-O", "StateCompact:12|,Memory:15|,NodeHost:30|,CPUsLoad:12|,Partition:15|,FreeMem:15|,CPUsState:15|,Weight:10|,AllocMem:15"}
+		}
+		if cliFlags.SlurmSinfoGpuOverride == "" {
+			cliOpts.sinfoGpu = []string{"sinfo", "-h", "-O", "Gres:30|"}
+		}
+		if cliFlags.SlurmSacctGpuOverride == "" {
+			cliOpts.sacctGpu = []string{"sacct", "-a", "-X", "--format=AllocGRES", "--state=RUNNING", "--noheader", "--parsable2"}
 		}
 		// must instantiate the job fetcher here since it is shared between 2 collectors
 		traceConf.sharedFetcher = &JobCliFallbackFetcher{
@@ -225,6 +246,10 @@ func InitPromServer(config *Config) http.Handler {
 	if cliOpts.sacctEnabled {
 		slog.Info("account limit collection enabled")
 		prometheus.MustRegister(NewLimitCollector(config))
+	}
+	if cliOpts.gpusEnabled {
+		slog.Info("GPU metrics collection enabled")
+		prometheus.MustRegister(NewGpuCollector(config))
 	}
 
 	return NewPromHTTPServer(cliOpts.excludeFilter)

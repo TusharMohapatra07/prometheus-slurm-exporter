@@ -1,0 +1,24 @@
+{
+  "meta": {
+    "Slurm": {
+      "version": {
+        "major": 23,
+        "micro": 0,
+        "minor": 5
+      },
+      "release": "23.05.0"
+    }
+  },
+  "errors": [],
+  "jobs": [
+    {
+      "allocated_gres": "gpu:2"
+    },
+    {
+      "allocated_gres": "gpu:tesla:1"
+    },
+    {
+      "allocated_gres": "gpu:a100:4"
+    }
+  ]
+}

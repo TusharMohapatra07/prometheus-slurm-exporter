@@ -1,0 +1,3 @@
+"gpu:2"
+"gpu:tesla:1"
+"gpu:a100:4"
