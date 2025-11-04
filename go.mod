@@ -1,4 +1,4 @@
-module github.com/rivosinc/prometheus-slurm-exporter
+module github.com/TusharMohapatra07/prometheus-slurm-exporter
 
 go 1.23.1
 

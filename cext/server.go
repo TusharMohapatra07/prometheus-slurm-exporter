@@ -9,7 +9,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/rivosinc/prometheus-slurm-exporter/exporter"
+	"github.com/TusharMohapatra07/prometheus-slurm-exporter/exporter"
 	"log/slog"
 )
 

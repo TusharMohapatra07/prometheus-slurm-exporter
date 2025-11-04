@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/rivosinc/prometheus-slurm-exporter/exporter"
+	"github.com/TusharMohapatra07/prometheus-slurm-exporter/exporter"
 	"github.com/stretchr/testify/assert"
 )
 

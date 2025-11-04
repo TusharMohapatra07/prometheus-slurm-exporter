@@ -7,7 +7,7 @@ import (
 
 	"log/slog"
 
-	"github.com/rivosinc/prometheus-slurm-exporter/exporter"
+	"github.com/TusharMohapatra07/prometheus-slurm-exporter/exporter"
 )
 
 var (
