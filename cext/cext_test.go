@@ -9,8 +9,8 @@ import (
 	"os/exec"
 	"testing"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/TusharMohapatra07/prometheus-slurm-exporter/exporter"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 )
 

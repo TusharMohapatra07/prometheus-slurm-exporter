@@ -311,14 +311,36 @@ func (gcf *GpuCliFallbackFetcher) ScrapeDuration() time.Duration {
 	return gcf.sinfoScraper.Duration()
 }
 
-// parseGresGpuCount parses GPU count from GRES string
-// Examples: "gpu:2", "gpu:tesla:2", "gpu:1(IDX:0)"
+// parseGresGpuCount parses GPU count from GRES or TRES string
+// GRES Examples: "gpu:2", "gpu:tesla:2", "gpu:1(IDX:0)"
+// TRES Examples: "cpu=4,mem=1024M,gres/gpu=2", "billing=8,cpu=8,gres/gpu=4,mem=32G,node=1"
 func parseGresGpuCount(gres string) float64 {
 	if gres == "" || gres == "N/A" || gres == "(null)" {
 		return 0
 	}
 
-	// Handle multiple GRES resources separated by comma
+	// Handle TRES format: "cpu=4,mem=1024M,gres/gpu=2"
+	if strings.Contains(gres, "=") {
+		// This is TRES format
+		for _, part := range strings.Split(gres, ",") {
+			part = strings.TrimSpace(part)
+			// Look for gres/gpu=N or gres/gpu:type=N
+			if strings.HasPrefix(part, "gres/gpu") {
+				// Extract the value after =
+				eqIdx := strings.Index(part, "=")
+				if eqIdx != -1 && eqIdx < len(part)-1 {
+					countStr := part[eqIdx+1:]
+					// Remove any type suffix like gres/gpu:tesla=4
+					if count, err := strconv.ParseFloat(countStr, 64); err == nil {
+						return count
+					}
+				}
+			}
+		}
+		return 0 // No GPU found in TRES
+	}
+
+	// Handle multiple GRES resources separated by comma (legacy GRES format)
 	if strings.Contains(gres, ",") {
 		total := 0.0
 		for _, part := range strings.Split(gres, ",") {

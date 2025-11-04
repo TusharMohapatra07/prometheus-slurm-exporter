@@ -10,9 +10,10 @@ import (
 	"log"
 	"net/http"
 
+	"log/slog"
+
 	"github.com/TusharMohapatra07/prometheus-slurm-exporter/cext"
 	"github.com/TusharMohapatra07/prometheus-slurm-exporter/exporter"
-	"log/slog"
 )
 
 var (

@@ -13,8 +13,8 @@ import (
 
 	"log/slog"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/TusharMohapatra07/prometheus-slurm-exporter/exporter"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type Destructor interface {

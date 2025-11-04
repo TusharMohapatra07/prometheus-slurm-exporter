@@ -93,7 +93,7 @@ func NewConfig(cliFlags *CliFlags) (*Config, error) {
 		sdiag:         []string{"sdiag", "--json"},
 		sacctmgr:      []string{"sacctmgr", "show", "assoc", "format=User,Account,GrpCPU,GrpMem,GrpJobs,GrpSubmit", "--noheader", "--parsable2"},
 		sinfoGpu:      []string{"sinfo", "--json"},
-		sacctGpu:      []string{"sacct", "-a", "-X", "--format=AllocGRES", "--state=RUNNING", "--json"},
+		sacctGpu:      []string{"sacct", "-a", "-X", "--format=AllocTRES", "--state=RUNNING", "--json"},
 		licEnabled:    cliFlags.SlurmLicEnabled,
 		diagsEnabled:  cliFlags.SlurmDiagEnabled,
 		gpusEnabled:   cliFlags.SlurmGpusEnabled,
@@ -176,7 +176,7 @@ func NewConfig(cliFlags *CliFlags) (*Config, error) {
 			cliOpts.sinfoGpu = []string{"sinfo", "-h", "-O", "Gres:30|"}
 		}
 		if cliFlags.SlurmSacctGpuOverride == "" {
-			cliOpts.sacctGpu = []string{"sacct", "-a", "-X", "--format=AllocGRES", "--state=RUNNING", "--noheader", "--parsable2"}
+			cliOpts.sacctGpu = []string{"sacct", "-a", "-X", "--format=AllocTRES", "--state=RUNNING", "--noheader", "--parsable2"}
 		}
 		// must instantiate the job fetcher here since it is shared between 2 collectors
 		traceConf.sharedFetcher = &JobCliFallbackFetcher{
