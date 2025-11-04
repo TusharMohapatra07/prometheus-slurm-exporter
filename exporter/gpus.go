@@ -248,10 +248,10 @@ func (gcf *GpuCliFallbackFetcher) fetchTotalGpus() (float64, error) {
 	}
 
 	for _, record := range records {
-		if len(record) < 2 {
+		if len(record) == 0 {
 			continue
 		}
-		gresField := strings.TrimSpace(record[1])
+		gresField := strings.TrimSpace(record[0])
 		gpuCount := parseGresGpuCount(gresField)
 		totalGpus += gpuCount
 	}

@@ -176,7 +176,7 @@ func NewConfig(cliFlags *CliFlags) (*Config, error) {
 			cliOpts.sinfoGpu = []string{"sinfo", "-h", "-O", "Gres:30|"}
 		}
 		if cliFlags.SlurmSacctGpuOverride == "" {
-			cliOpts.sacctGpu = []string{"sacct", "-a", "-X", "--format=AllocTRES", "--state=RUNNING", "--noheader", "--parsable2"}
+			cliOpts.sacctGpu = []string{"sacct", "-a", "-X", "--format=ReqGRES", "--state=RUNNING", "--noheader", "--parsable2"}
 		}
 		// must instantiate the job fetcher here since it is shared between 2 collectors
 		traceConf.sharedFetcher = &JobCliFallbackFetcher{
