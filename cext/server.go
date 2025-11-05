@@ -9,9 +9,9 @@ import (
 
 	"log/slog"
 
-	"github.com/TusharMohapatra07/prometheus-slurm-exporter/exporter"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/rivosinc/prometheus-slurm-exporter/exporter"
 )
 
 func InitPromServer(config *exporter.Config) (http.Handler, []Destructor) {
